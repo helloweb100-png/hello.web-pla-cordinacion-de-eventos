@@ -16,7 +16,7 @@
 
   /* ---------- Configuración del negocio ---------- */
   const WA_NUMBER = '528447679690';          // 844 767 9690 con lada de México (52)
-  const PROMO_MONTH = 9;                      // 0 = enero ... 9 = octubre (mes de la promoción)
+  const PROMO_END = new Date(2026, 11, 31, 23, 59, 59); // vigencia del paquete: 31 de diciembre de 2026
 
   /* ---------- Utilidades ---------- */
   const root = document.documentElement;
@@ -124,36 +124,13 @@
     });
   }
 
-  /* Servicios: acordeón de imágenes (clic/tap; hover en escritorio) */
+  /* Recalcula ScrollTrigger cuando cambia la altura de la página (p. ej. al abrir una pregunta) */
   let refreshTimer;
   const refreshLater = (ms = 1000) => {
     if (!HAS_GSAP) return;
     clearTimeout(refreshTimer);
     refreshTimer = setTimeout(() => ScrollTrigger.refresh(), ms);
   };
-
-  function initServices() {
-    const items = $$('[data-svc]');
-    if (!items.length) return;
-    const activate = (target) => {
-      if (target.classList.contains('is-active')) return;
-      items.forEach((it) => {
-        const on = it === target;
-        it.classList.toggle('is-active', on);
-        $('.svc__toggle', it).setAttribute('aria-expanded', String(on));
-      });
-      refreshLater();
-    };
-    items.forEach((it) => {
-      $('.svc__toggle', it).addEventListener('click', () => activate(it));
-      let hoverTimer;
-      it.addEventListener('pointerenter', (e) => {
-        if (e.pointerType !== 'mouse' || !DESKTOP.matches) return;
-        hoverTimer = setTimeout(() => activate(it), 90);
-      });
-      it.addEventListener('pointerleave', () => clearTimeout(hoverTimer));
-    });
-  }
 
   /* Preguntas frecuentes */
   function initFaq() {
@@ -172,32 +149,13 @@
     });
   }
 
-  /* Cronograma de ejemplo: avanza solo mientras está a la vista */
-  function initTimeline() {
-    const box = $('[data-timeline]');
-    if (!box) return;
-    const rows = $$('li', box);
-    let i = 0;
-    let timer = null;
-    const paint = () => rows.forEach((li, k) => {
-      li.classList.toggle('is-now', k === i);
-      li.classList.toggle('is-done', k < i);
-    });
-    paint();
-    if (REDUCED) return;
-    const start = () => { if (!timer) timer = setInterval(() => { i = (i + 1) % rows.length; paint(); }, 1900); };
-    const stop = () => { clearInterval(timer); timer = null; };
-    new IntersectionObserver(([en]) => (en.isIntersecting ? start() : stop()), { threshold: 0.35 }).observe(box);
-  }
-
-  /* Cuenta regresiva de la promoción (hasta el último día del mes promocional) */
+  /* Cuenta regresiva del paquete promocional (hasta PROMO_END) */
   function initCountdown() {
     const box = $('[data-countdown]');
     const ended = $('[data-countdown-ended]');
     if (!box) return;
-    const now = new Date();
-    const end = new Date(now.getFullYear(), PROMO_MONTH + 1, 0, 23, 59, 59);
-    if (now > end) { if (ended) ended.hidden = false; return; }
+    const end = PROMO_END;
+    if (new Date() > end) { if (ended) ended.hidden = false; return; }
     promoActive = true;
     box.hidden = false;
     const cells = { d: $('[data-cd="d"]'), h: $('[data-cd="h"]'), m: $('[data-cd="m"]'), s: $('[data-cd="s"]') };
@@ -265,7 +223,7 @@
       if (inv) parts.push(`Calculo ${inv} invitados.`);
       const msg = $('#f-msg').value.trim();
       if (msg) parts.push(`Lo que imagino: ${msg.replace(/[.\s]+$/, '')}.`);
-      if (promoActive) parts.push('Vi la promoción de octubre (25% de descuento y cabina de cortesía).');
+      if (promoActive) parts.push('Vi el paquete desde $7,499 con cabina de cortesía.');
 
       const url = waLink(parts.join(' '));
       okLink.href = url;
@@ -497,7 +455,7 @@
     /* --- Hero: estado inicial (la entrada se dispara al abrirse el telón) --- */
     const hv = $('.hero__visual');
     $$('[data-depth]').forEach((el) => el.style.setProperty('--d', el.dataset.depth));
-    gsap.set(['[data-hero="strip"]', '[data-hero="lead"]', '[data-hero="actions"]'], { opacity: 0 });
+    gsap.set(['[data-hero="strip"]', '[data-hero="lead"]', '[data-hero="promo"]', '[data-hero="actions"]'], { opacity: 0 });
     gsap.set('.hero__arch', { clipPath: 'inset(100% 0% 0% 0%)' });
     gsap.set('.hero__arch img', { scale: 1.4 });
     gsap.set('.hero__card--a', { clipPath: 'inset(0% 0% 100% 0% round 22px)' });
@@ -580,27 +538,6 @@
       });
     }
 
-    /* --- Servicios: entrada escalonada --- */
-    const svcs = $$('[data-svc]');
-    if (svcs.length) {
-      gsap.from(svcs, { y: 70, opacity: 0, duration: 1.3, stagger: 0.12, scrollTrigger: { trigger: '[data-services]', start: 'top 85%', once: true } });
-    }
-
-    /* --- Bento: aparición por lotes y parallax de las fotos --- */
-    const tiles = $$('[data-tile]');
-    gsap.set(tiles, { opacity: 0, y: 64 });
-    ScrollTrigger.batch(tiles, {
-      start: 'top 92%', once: true,
-      onEnter: (b) => gsap.to(b, { opacity: 1, y: 0, duration: 1.3, stagger: 0.13, overwrite: true })
-    });
-    $$('[data-bento] .tile--img').forEach((tile) => {
-      gsap.fromTo($('img', tile), { yPercent: -6 }, {
-        yPercent: 6, ease: 'none',
-        scrollTrigger: { trigger: tile, start: 'top bottom', end: 'bottom top', scrub: true }
-      });
-    });
-    $$('[data-bento] .tile--img img').forEach((img) => { img.style.willChange = 'transform'; });
-
     /* --- Método: cada tarjeta se achica al llegar la siguiente --- */
     const cards = $$('[data-card]');
     cards.forEach((card, i) => {
@@ -617,29 +554,7 @@
       });
     });
 
-    /* --- Galería: scroll vertical que se convierte en desplazamiento horizontal --- */
-    const gal = $('[data-gallery]');
-    const galTrack = $('[data-gallery-track]');
-    if (gal && galTrack) {
-      gal.classList.add('is-pinned');
-      const dist = () => Math.max(0, galTrack.scrollWidth - window.innerWidth);
-      const pan = gsap.to(galTrack, {
-        x: () => -dist(), ease: 'none',
-        scrollTrigger: {
-          trigger: gal, start: 'top top', end: () => '+=' + dist(), pin: true, scrub: 0.7,
-          anticipatePin: 1, invalidateOnRefresh: true,
-          onUpdate: (self) => gal.style.setProperty('--gp', self.progress.toFixed(3))
-        }
-      });
-      $$('.g__frame', gal).forEach((frame) => {
-        gsap.fromTo($('img', frame), { xPercent: -5 }, {
-          xPercent: 5, ease: 'none',
-          scrollTrigger: { trigger: frame, containerAnimation: pan, start: 'left right', end: 'right left', scrub: true }
-        });
-      });
-    }
-
-    /* --- Promoción: el boleto aparece y el 25 se cuenta solo --- */
+    /* --- Promoción: el boleto aparece y el monto se cuenta solo --- */
     const ticket = $('[data-ticket]');
     if (ticket) {
       gsap.from(ticket, { y: 90, opacity: 0, scale: 0.96, duration: 1.5, scrollTrigger: { trigger: ticket, start: 'top 88%', once: true } });
@@ -650,7 +565,7 @@
           trigger: ticket, start: 'top 80%', once: true,
           onEnter: () => {
             const o = { v: 0 };
-            gsap.to(o, { v: Number(num.dataset.count), duration: 2.2, ease: 'power3.out', onUpdate: () => { num.textContent = Math.round(o.v); } });
+            gsap.to(o, { v: Number(num.dataset.count), duration: 2.2, ease: 'power3.out', onUpdate: () => { num.textContent = Math.round(o.v).toLocaleString('es-MX'); } });
           }
         });
       }
@@ -692,6 +607,7 @@
     tl.to($$('.wi', $('[data-split="hero"]')), { yPercent: 0, duration: 1.5, stagger: 0.09 }, 0.1)
       .to('[data-hero="strip"]', { opacity: 1, duration: 1.2 }, 0.15)
       .to('[data-hero="lead"]', { opacity: 1, duration: 1.2 }, 0.55)
+      .to('[data-hero="promo"]', { opacity: 1, duration: 1.2 }, 0.62)
       .to('[data-hero="actions"]', { opacity: 1, duration: 1.2 }, 0.7)
       .to('.hero__arch', { clipPath: 'inset(0% 0% 0% 0%)', duration: 1.9, ease: 'expo.inOut' }, 0.2)
       .to('.hero__arch img', { scale: 1, duration: 2.4 }, 0.2)
@@ -718,9 +634,7 @@
     safe('buttons', initButtons);
     safe('menu', initMenu);
     safe('anchors', initAnchors);
-    safe('services', initServices);
     safe('faq', initFaq);
-    safe('timeline', initTimeline);
     safe('countdown', initCountdown);
     safe('form', initForm);
 
